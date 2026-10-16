@@ -349,7 +349,9 @@ export function HarnessesPage() {
                       {liveAdapters.map((adapter) => {
                         const steerMsg = steerInputs[adapter.port] ?? "";
                         const isSending = sendingPorts[adapter.port] ?? false;
-                        const curlCmd = `curl -s -X POST http://${adapter.host}:${adapter.port}/message -H "Content-Type: application/json" -d '{"message":"check status"}'`;
+                        const isDesktop =
+                          adapter.harness === "wb" || adapter.harness === "antigravity";
+                        const curlCmd = `curl -s -X POST http://${adapter.host}:${adapter.port}/tasks -H "Content-Type: application/json" -d '{"message":{"role":"user","parts":[{"text":"<instruction>"}]}}'`;
 
                         return (
                           <div
@@ -408,8 +410,13 @@ export function HarnessesPage() {
                             {/* Quick Steering Input */}
                             <div className="flex gap-2">
                               <Input
-                                placeholder="Steer agent or dispatch instruction..."
+                                placeholder={
+                                  isDesktop
+                                    ? "Direct desktop app steer not supported (NA)"
+                                    : "Steer agent or dispatch instruction..."
+                                }
                                 value={steerMsg}
+                                disabled={isDesktop}
                                 onChange={(e) =>
                                   setSteerInputs((prev) => ({
                                     ...prev,
@@ -417,20 +424,31 @@ export function HarnessesPage() {
                                   }))
                                 }
                                 onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
+                                  if (e.key === "Enter" && !isDesktop) {
                                     void handleSend(adapter.port, adapter.host);
                                   }
                                 }}
-                                className="h-8 text-xs"
+                                className={cn(
+                                  "h-8 text-xs",
+                                  isDesktop && "opacity-60 cursor-not-allowed bg-muted/20",
+                                )}
                               />
                               <Button
                                 size="sm"
-                                className="h-8 px-2.5 gap-1 shrink-0"
+                                className={cn(
+                                  "h-8 px-2.5 gap-1 shrink-0",
+                                  isDesktop && "opacity-50 cursor-not-allowed",
+                                )}
                                 onClick={() => void handleSend(adapter.port, adapter.host)}
-                                disabled={!steerMsg.trim() || isSending}
+                                disabled={isDesktop || !steerMsg.trim() || isSending}
+                                title={
+                                  isDesktop
+                                    ? "Steering directly to desktop app sessions is not supported (NA)"
+                                    : undefined
+                                }
                               >
                                 <SendIcon className="size-3" />
-                                <span>Steer</span>
+                                <span>{isDesktop ? "Steer (NA)" : "Steer"}</span>
                               </Button>
                             </div>
 
@@ -446,26 +464,38 @@ export function HarnessesPage() {
                                 <span>Doctor</span>
                               </Button>
 
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                                onClick={() =>
-                                  void copyToClipboard(`curl-${adapter.port}`, curlCmd)
-                                }
-                              >
-                                {copiedKey === `curl-${adapter.port}` ? (
-                                  <>
-                                    <CheckIcon className="size-3.5 text-emerald-500" />
-                                    <span>Copied Curl</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <CopyIcon className="size-3.5" />
-                                    <span>Copy Curl</span>
-                                  </>
-                                )}
-                              </Button>
+                              {isDesktop ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled
+                                  className="h-7 px-2 text-xs gap-1 opacity-50 cursor-not-allowed"
+                                  title="Steering directly to desktop app sessions is not supported (NA)"
+                                >
+                                  <span>Steer cmd (NA)</span>
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                                  onClick={() =>
+                                    void copyToClipboard(`curl-${adapter.port}`, curlCmd)
+                                  }
+                                >
+                                  {copiedKey === `curl-${adapter.port}` ? (
+                                    <>
+                                      <CheckIcon className="size-3.5 text-emerald-500" />
+                                      <span>Copied Curl</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CopyIcon className="size-3.5" />
+                                      <span>Copy Curl</span>
+                                    </>
+                                  )}
+                                </Button>
+                              )}
                             </div>
                           </div>
                         );
@@ -495,6 +525,7 @@ export function HarnessesPage() {
                     <div className="space-y-3">
                       {state.sessions.map((s) => {
                         const isOnline = Boolean(s.adapter);
+                        const isDesktop = s.harness === "wb" || s.harness === "antigravity";
                         const attachCmd = s.attach || "";
 
                         return (
@@ -542,7 +573,20 @@ export function HarnessesPage() {
                                 </span>
                               </div>
 
-                              {attachCmd && (
+                              {isDesktop ? (
+                                <div className="flex items-center gap-2 pt-0.5">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled
+                                    className="h-6 text-[11px] font-mono px-2 py-0 gap-1.5 opacity-50 cursor-not-allowed bg-muted/20 text-muted-foreground"
+                                    title="Steering directly to desktop app sessions is not supported (NA)"
+                                  >
+                                    <TerminalIcon className="size-3" />
+                                    <span>Steer cmd: NA (Desktop App)</span>
+                                  </Button>
+                                </div>
+                              ) : attachCmd ? (
                                 <div className="flex items-center gap-2 pt-0.5">
                                   <Button
                                     size="sm"
@@ -561,7 +605,7 @@ export function HarnessesPage() {
                                     )}
                                   </Button>
                                 </div>
-                              )}
+                              ) : null}
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
